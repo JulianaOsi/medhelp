@@ -26,13 +26,17 @@ func main() {
 		log.Fatalf("failed to create store: %v\n", err)
 	}
 
-	analysis, err := s.GetAnalysisByDirectionId(context.Background(), "0")
+	directions, err := s.GetDirections(context.Background())
 	if err != nil {
-		log.Fatalf("get analysis failed: %v\n", err)
+		log.Fatalf("get directions failed: %v\n", err)
 	}
 
-	for _, a := range analysis {
-		fmt.Println(a.Id, a.Name, a.IsChecked)
+	for _, d := range directions {
+		fmt.Println(
+			d.Id, d.PatientFirstName, d.PatientLastName,
+			d.PatientPolicyNumber, d.PatientTel, d.Date,
+			d.IcdCode, d.MedicalOrganization, d.Status,
+		)
 	}
 
 	server.LaunchServer()
