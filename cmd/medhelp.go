@@ -39,5 +39,38 @@ func main() {
 		)
 	}
 
+	err = s.SetDirectionStatus(context.Background(), "2", "3")
+	if err != nil {
+		log.Fatalf("SetDirectionStatus failed: %v\n", err)
+	}
+
+	personalDirections, err := s.GetDirectionsByPatientId(context.Background(), "2")
+	if err != nil {
+		log.Fatalf("gGetDirectionsByPatientId failed: %v\n", err)
+	}
+
+	for _, d := range personalDirections {
+		fmt.Println("personalDirections")
+		fmt.Println(
+			d.Id, d.PatientFirstName, d.PatientLastName,
+			d.PatientPolicyNumber, d.PatientTel, d.Date,
+			d.IcdCode, d.MedicalOrganization, d.Status,
+		)
+	}
+
+	err = s.SetAnalysisChecked(context.Background(), "7")
+	if err != nil {
+		log.Fatalf("SetAnalysisChecked failed: %v\n", err)
+	}
+
+	err = s.SetAnalysisChecked(context.Background(), "11")
+	if err != nil {
+		log.Fatalf("SetAnalysisChecked failed: %v\n", err)
+	}
+	err = s.SetAnalysisUnChecked(context.Background(), "7")
+	if err != nil {
+		log.Fatalf("SetAnalysisUnChecked failed: %v\n", err)
+	}
+
 	server.LaunchServer()
 }

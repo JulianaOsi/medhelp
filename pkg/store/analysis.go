@@ -48,6 +48,42 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId string
 	return analysis, nil
 }
 
+func (s *Store) SetAnalysisChecked(ctx context.Context, analysisId string) error {
+	sql, _, err := goqu.Update("direction_analysis").
+		Set(goqu.Record{"is_checked": "True"}).
+		Where(goqu.C("id").Eq(analysisId)).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("sql query build failed: %v", err)
+	}
+
+	_, err = s.connPool.Exec(ctx, sql)
+
+	if err != nil {
+		return fmt.Errorf("execute a query failed: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Store) SetAnalysisUnChecked(ctx context.Context, analysisId string) error {
+	sql, _, err := goqu.Update("direction_analysis").
+		Set(goqu.Record{"is_checked": "False"}).
+		Where(goqu.C("id").Eq(analysisId)).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("sql query build failed: %v", err)
+	}
+
+	_, err = s.connPool.Exec(ctx, sql)
+
+	if err != nil {
+		return fmt.Errorf("execute a query failed: %v", err)
+	}
+
+	return nil
+}
+
 func readAnalysis(row pgx.Row) (*Analysis, error) {
 	var a Analysis
 
