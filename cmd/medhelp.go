@@ -58,16 +58,16 @@ func main() {
 		)
 	}
 
-	err = s.SetAnalysisChecked(context.Background(), "7")
+	err = s.SetAnalysisState(context.Background(), "7", true)
 	if err != nil {
 		log.Fatalf("SetAnalysisChecked failed: %v\n", err)
 	}
 
-	err = s.SetAnalysisChecked(context.Background(), "11")
+	err = s.SetAnalysisState(context.Background(), "11", true)
 	if err != nil {
 		log.Fatalf("SetAnalysisChecked failed: %v\n", err)
 	}
-	err = s.SetAnalysisUnChecked(context.Background(), "7")
+	err = s.SetAnalysisState(context.Background(), "7", false)
 	if err != nil {
 		log.Fatalf("SetAnalysisUnChecked failed: %v\n", err)
 	}
