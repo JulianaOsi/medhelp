@@ -7,6 +7,8 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
+var DB *Store
+
 type Store struct {
 	connPool *pgxpool.Pool
 }
@@ -18,12 +20,14 @@ type ConfigDB struct {
 	User string
 }
 
-func New(config *ConfigDB) (*Store, error) {
+func InitDB(config *ConfigDB) error {
 	pool, err := pgxpool.Connect(context.Background(), config.ToString())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return &Store{connPool: pool}, nil
+
+	DB = &Store{connPool: pool}
+	return nil
 }
 
 func (c *ConfigDB) ToString() string {
