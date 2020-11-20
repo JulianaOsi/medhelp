@@ -10,15 +10,15 @@ import (
 )
 
 type Direction struct {
-	Id                  int
-	PatientFirstName    string
-	PatientLastName     string
-	PatientPolicyNumber string
-	PatientTel          string
-	Date                time.Time
-	IcdCode             string
-	MedicalOrganization string
-	Status              int
+	Id                  int       `json:"id"`
+	PatientFirstName    string    `json:"patientFirstName"`
+	PatientLastName     string    `json:"patientLastName"`
+	PatientPolicyNumber string    `json:"patientPolicyNumber"`
+	PatientTel          string    `json:"patientTel"`
+	Date                time.Time `json:"date"`
+	IcdCode             string    `json:"icdCode"`
+	MedicalOrganization string    `json:"medicalOrganization"`
+	Status              int       `json:"status"`
 }
 
 func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {

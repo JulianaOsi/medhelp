@@ -9,9 +9,9 @@ import (
 )
 
 type Analysis struct {
-	Id        int
-	Name      string
-	IsChecked bool
+	Id        int    `json:"id"`
+	Name      string `json:"name"`
+	IsChecked bool   `json:"isChecked"`
 }
 
 func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId string) ([]*Analysis, error) {
