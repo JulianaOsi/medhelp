@@ -96,7 +96,7 @@ func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) 
 	return directions, nil
 }
 
-func (s *Store) SetDirectionStatus(ctx context.Context, directionId string, statusId string) error {
+func (s *Store) SetDirectionStatus(ctx context.Context, directionId int, statusId int) error {
 	sql, _, err := goqu.Update("direction").
 		Set(goqu.Record{"status": statusId}).
 		Where(goqu.C("id").Eq(directionId)).
