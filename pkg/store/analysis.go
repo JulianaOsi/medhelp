@@ -48,7 +48,7 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId string
 	return analysis, nil
 }
 
-func (s *Store) SetAnalysisState(ctx context.Context, analysisId string, isChecked bool) error {
+func (s *Store) SetAnalysisState(ctx context.Context, analysisId int, isChecked bool) error {
 	sql, _, err := goqu.Update("direction_analysis").
 		Set(goqu.Record{"is_checked": isChecked}).
 		Where(goqu.C("id").Eq(analysisId)).
