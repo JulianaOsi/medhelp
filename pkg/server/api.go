@@ -4,24 +4,48 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/JulianaOsi/medhelp/pkg/config"
+	"github.com/JulianaOsi/medhelp/pkg/store"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"github.com/antonlindstrom/pgstore"
-	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
-
-	"github.com/JulianaOsi/medhelp/pkg/store"
+	"time"
 )
 
+var mySigningKey = []byte("") // TODO Секрет
+
 func getDirections(w http.ResponseWriter, r *http.Request) {
-	directions, err := store.DB.GetDirections(context.Background())
+
+	token, err := jwtMiddleware(r.Header.Get("Bearer"))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to get directions: %v\n", err)
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
 		return
+	}
+
+	var directions []*store.Direction
+	var claims = token.Claims.(jwt.MapClaims)
+
+	if claims["type"] == "patient" {
+		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions by patient: %v\n", err)
+			return
+		}
+	} else if claims["type"] == "admin" {
+		directions, err = store.DB.GetDirections(context.Background())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions: %v\n", err)
+			return
+		}
 	}
 
 	directionsBytes, err := json.MarshalIndent(directions, "", " ")
@@ -117,20 +141,6 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	authData := login{}
 
-	type token struct {
-		Content string `json:"content"`
-	}
-	newToken := token{}
-
-	c := config.ReadConfig().DB
-	sessionStore, err := pgstore.NewPGStore(fmt.Sprintf("postgres://%s:@%s:%s/%s?sslmode=disable",
-		c.User, c.Host, c.Port, c.Name), []byte("secretly-secret")) // TODO Разобраться с секретом
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to connect to session storage: %v\n", err)
-		return
-	}
-
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -157,32 +167,32 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newToken.Content = "session-key" // TODO сделать генерацию токена для новой сессии
-	session, err := sessionStore.Get(r, newToken.Content)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to create new session: %v\n", err)
-		return
+	var claims = jwt.MapClaims{ // TODO заносится только тип patient. Нужно подумать
+		"type":    "patient",
+		"user_id": patient.Id,
+		"name":    patient.LastName + " " + patient.FirstName,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 
-	session.Values["patient_id"] = patient.Id
-	tokenBytes, err := json.Marshal(newToken)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to create json: %v\n", err)
-		return
-	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(mySigningKey)
 
-	if _, err := w.Write(tokenBytes); err != nil {
+	if _, err = w.Write([]byte(tokenString)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to write token: %v\n", err)
 		return
 	}
 
-	if err := session.Save(r, w); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to save session: %v\n", err)
-		return
+}
+
+func jwtMiddleware(tokenString string) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return mySigningKey, nil
+	})
+	if err != nil {
+		logrus.Errorf("failed to parse token: %v\n", err)
+		return nil, err
 	}
 
+	return token, nil
 }
