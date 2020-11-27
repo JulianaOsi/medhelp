@@ -31,6 +31,10 @@ func InitDB(config *ConfigDB) error {
 }
 
 func (c *ConfigDB) ToString() string {
-	return fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable search_path=public",
-		c.Host, c.Port, c.Name, c.User, c.Password)
+	if c.Password != "" {
+		return fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable search_path=public",
+			c.Host, c.Port, c.Name, c.User, c.Password)
+	}
+	return fmt.Sprintf("host=%s port=%s dbname=%s user=%s sslmode=disable search_path=public",
+		c.Host, c.Port, c.Name, c.User)
 }
