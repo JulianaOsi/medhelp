@@ -15,6 +15,8 @@ type Direction struct {
 	PatientLastName     string    `json:"patientLastName"`
 	PatientPolicyNumber string    `json:"patientPolicyNumber"`
 	PatientTel          string    `json:"patientTel"`
+	DoctorName          string    `json:"doctorName"`
+	DoctorSpecialty     string    `json:"doctorSpecialty"`
 	Date                time.Time `json:"date"`
 	IcdCode             string    `json:"icdCode"`
 	MedicalOrganization string    `json:"medicalOrganization"`
@@ -24,13 +26,19 @@ type Direction struct {
 func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
 		"direction.id", "first_name", "last_name", "policy_number",
-		"tel", "date", "icd_code", "medical_organization", "status",
+		"tel", "name", "specialty", "date", "icd_code", "medical_organization", "status",
 	).
 		From("direction").
 		LeftJoin(
 			goqu.T("patient"),
 			goqu.On(goqu.Ex{
 				"patient_id": goqu.I("patient.id"),
+			}),
+		).
+		LeftJoin(
+			goqu.T("doctor"),
+			goqu.On(goqu.Ex{
+				"doctor_id": goqu.I("doctor.id"),
 			}),
 		).
 		Order(goqu.C("date").Asc()).
@@ -61,13 +69,19 @@ func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
 		"direction.id", "first_name", "last_name", "policy_number",
-		"tel", "date", "icd_code", "medical_organization", "status",
+		"tel", "name", "specialty", "date", "icd_code", "medical_organization", "status",
 	).
 		From("direction").
 		LeftJoin(
 			goqu.T("patient"),
 			goqu.On(goqu.Ex{
 				"patient_id": goqu.I("patient.id"),
+			}),
+		).
+		LeftJoin(
+			goqu.T("doctor"),
+			goqu.On(goqu.Ex{
+				"doctor_id": goqu.I("doctor.id"),
 			}),
 		).
 		Where(goqu.C("patient_id").Eq(patientId)).
@@ -119,7 +133,8 @@ func readDirection(row pgx.Row) (*Direction, error) {
 
 	err := row.Scan(
 		&d.Id, &d.PatientFirstName, &d.PatientLastName,
-		&d.PatientPolicyNumber, &d.PatientTel, &d.Date,
+		&d.PatientPolicyNumber, &d.PatientTel, &d.DoctorName,
+		&d.DoctorSpecialty, &d.Date,
 		&d.IcdCode, &d.MedicalOrganization, &d.Status,
 	)
 	if err != nil {
