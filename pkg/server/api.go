@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/JulianaOsi/medhelp/pkg/config"
 	"github.com/JulianaOsi/medhelp/pkg/store"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
@@ -13,8 +14,6 @@ import (
 	"net/http"
 	"time"
 )
-
-var mySigningKey = []byte("") // TODO Секрет
 
 func getDirections(w http.ResponseWriter, r *http.Request) {
 
@@ -175,7 +174,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(mySigningKey)
+	tokenString, err := token.SignedString(config.SigningKey)
 
 	if _, err = w.Write([]byte(tokenString)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -187,7 +186,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 
 func jwtMiddleware(tokenString string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return mySigningKey, nil
+		return config.SigningKey, nil
 	})
 	if err != nil {
 		logrus.Errorf("failed to parse token: %v\n", err)
