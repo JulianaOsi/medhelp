@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -18,8 +20,7 @@ import (
 )
 
 func getDirections(w http.ResponseWriter, r *http.Request) {
-
-	token, err := jwtMiddleware(r.Header.Get("Bearer"))
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
 		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
 		if err != nil {
@@ -63,26 +64,69 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
+		return
+	}
+
+	var directions []*store.Direction
+	var claims = token.Claims.(jwt.MapClaims)
+
+	if claims["type"] == "patient" {
+		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions by patient: %v\n", err)
+			return
+		}
+	} else if claims["type"] == "admin" {
+		directions, err = store.DB.GetDirections(context.Background())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions: %v\n", err)
+			return
+		}
+	}
+
 	vars := mux.Vars(r)
-	id := vars["id"]
-	analysis, err := store.DB.GetAnalysisByDirectionId(context.Background(), id)
+	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to get direction analysis: %v\n", err)
+		logrus.Errorf("failed to convert string to int: %v\n", err)
 		return
 	}
 
-	analysisBytes, err := json.MarshalIndent(analysis, "", " ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to marshal direction analysis: %v\n", err)
-		return
-	}
+	for i := range directions {
+		if directions[i].Id == id {
+			analysis, err := store.DB.GetAnalysisByDirectionId(context.Background(), id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to get direction analysis: %v\n", err)
+				return
+			}
 
-	if _, err := w.Write(analysisBytes); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write direction analysis: %v\n", err)
+			analysisBytes, err := json.MarshalIndent(analysis, "", " ")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to marshal direction analysis: %v\n", err)
+				return
+			}
+
+			if _, err := w.Write(analysisBytes); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to write direction analysis: %v\n", err)
+				return
+			}
+			return
+		}
 	}
+	w.WriteHeader(http.StatusUnauthorized)
 }
 
 func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +231,7 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func jwtMiddleware(tokenString string) (*jwt.Token, error) {
+	tokenString = strings.Replace(tokenString, "Bearer ", "", 1)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return config.SigningKey, nil
 	})
