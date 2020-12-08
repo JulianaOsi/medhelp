@@ -4,15 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/JulianaOsi/medhelp/pkg/config"
-	"github.com/JulianaOsi/medhelp/pkg/store"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gorilla/mux"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+
+	"github.com/JulianaOsi/medhelp/pkg/config"
+	"github.com/JulianaOsi/medhelp/pkg/store"
 )
 
 func getDirections(w http.ResponseWriter, r *http.Request) {
@@ -194,4 +196,24 @@ func jwtMiddleware(tokenString string) (*jwt.Token, error) {
 	}
 
 	return token, nil
+}
+
+func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to get file: %v\n", err)
+		return
+	}
+	defer file.Close()
+
+	vars := mux.Vars(r)
+	directionId := vars["id"]
+
+	err = store.DB.UploadAnalysisFile(context.Background(), handler.Filename, file, directionId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to upload analysis file: %v\n", err)
+		return
+	}
 }

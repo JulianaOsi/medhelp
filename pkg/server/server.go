@@ -16,6 +16,7 @@ func LaunchServer() {
 	r.HandleFunc("/status", setDirectionStatus).Methods(http.MethodPost)
 	r.HandleFunc("/check", setAnalysisCheck).Methods(http.MethodPost)
 	r.HandleFunc("/auth", authHandler).Methods(http.MethodPost)
+	r.HandleFunc("/direction/{id}/analysisFile", uploadAnalysisFile).Methods(http.MethodPost)
 
 	fmt.Printf("Starting server at localhost:8080\n")
 	if err := http.ListenAndServe(":8080", r); err != nil {
