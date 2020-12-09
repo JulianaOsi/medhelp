@@ -12,11 +12,12 @@ import (
 )
 
 type User struct {
-	Id       *int   `json:"user_id"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Salt     string `json:"salt"`
-	Role     string `json:"role"`
+	Id        *int   `json:"user_id"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Salt      string `json:"salt"`
+	Role      string `json:"role"`
+	RelatedId *int   `json:"related_id"`
 }
 
 func (s *Store) CreateUser(ctx context.Context, username string, password string, role string) error {
@@ -42,8 +43,23 @@ func (s *Store) CreateUser(ctx context.Context, username string, password string
 	return nil
 }
 
+func (s *Store) AddRelatedIdToUser(ctx context.Context, username string, relatedId int) error {
+	sql, _, err := goqu.Update("users").
+		Set(goqu.Record{
+			"id_related": relatedId,
+		}).
+		Where(goqu.C("username").Eq(username)).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("AddRelatedIdToUser(): sql query build failed: %v", err)
+	}
+	if _, err := s.connPool.Exec(ctx, sql); err != nil {
+		return fmt.Errorf("AddRelatedIdToUser(): execute a query failed: %v", err)
+	}
+	return nil
+}
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
-	sql, _, err := goqu.Select("id", "username", "password", "salt", "role").
+	sql, _, err := goqu.Select("id", "username", "password", "salt", "role", "id_related").
 		From("users").
 		Where(goqu.C("username").Eq(username)).
 		ToSQL()
@@ -111,7 +127,7 @@ func generateChecksum(password string, salt string) string {
 func readUser(row pgx.Row) (*User, error) {
 	var u User
 
-	err := row.Scan(&u.Id, &u.Username, &u.Password, &u.Salt, &u.Role)
+	err := row.Scan(&u.Id, &u.Username, &u.Password, &u.Salt, &u.Role, &u.RelatedId)
 	if err != nil {
 		return nil, err
 	}

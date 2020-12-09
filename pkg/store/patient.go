@@ -16,18 +16,18 @@ type Patient struct {
 	Tel          string `json:"tel"`
 }
 
-func (s *Store) FindPatient(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
+func (s *Store) GetPatientByLastNameAndPolicyNumber(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
 	sql, _, err := goqu.Select("id", "first_name", "last_name", "policy_number", "tel").
 		From("patient").
 		Where(goqu.C("last_name").Eq(lastName), goqu.C("policy_number").Eq(policyNumber)).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("sql query build failed: %v", err)
+		return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("execute a query failed: %v", err)
+		return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -36,7 +36,7 @@ func (s *Store) FindPatient(ctx context.Context, lastName string, policyNumber s
 	for rows.Next() {
 		patient, err := readPatient(rows)
 		if err != nil {
-			return nil, fmt.Errorf("read direction failed: %v", err)
+			return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): read direction failed: %v", err)
 		}
 		patients = append(patients, patient)
 	}

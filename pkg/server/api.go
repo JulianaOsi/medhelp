@@ -34,14 +34,14 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 	var directions []*store.Direction
 	var claims = token.Claims.(jwt.MapClaims)
 
-	if claims["type"] == "patient" {
+	if claims["role"] == "patient" {
 		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions by patient: %v\n", err)
 			return
 		}
-	} else if claims["type"] == "admin" {
+	} else if claims["role"] == "registrar" {
 		directions, err = store.DB.GetDirections(context.Background())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -78,14 +78,14 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 	var directions []*store.Direction
 	var claims = token.Claims.(jwt.MapClaims)
 
-	if claims["type"] == "patient" {
+	if claims["role"] == "patient" {
 		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions by patient: %v\n", err)
 			return
 		}
-	} else if claims["type"] == "admin" {
+	} else if claims["role"] == "registrar" {
 		directions, err = store.DB.GetDirections(context.Background())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -180,12 +180,23 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
-	type auth struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Role     string `json:"role"`
+	type registrar struct {
+		Secret string `json:"secret"`
 	}
-	cred := auth{}
+	type patient struct {
+		Lastname     string `json:"lastname"`
+		PolicyNumber string `json:"policy_number"`
+	}
+	type form struct {
+		Username  string     `json:"username"`
+		Password  string     `json:"password"`
+		Registrar *registrar `json:"registrar"`
+		Patient   *patient   `json:"patient"`
+	}
+	cred := form{
+		Registrar: nil,
+		Patient:   nil,
+	}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -209,70 +220,173 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
-		err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, cred.Role)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("registrationHandler(): %v\n", err)
+		var claims = jwt.MapClaims{}
+		if cred.Registrar != nil {
+			if true { // TODO проверка на registrar secret, добавить информации в токен
+				err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, "registrar")
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("registrationHandler(): %v\n", err)
+					return
+				}
+
+				claims = jwt.MapClaims{
+					"role":     "registrar",
+					"username": cred.Username,
+					"exp":      time.Now().Add(time.Hour * 24).Unix(),
+				}
+			}
+		} else if cred.Patient != nil {
+			existingPatient, err := store.DB.GetPatientByLastNameAndPolicyNumber(context.Background(), cred.Patient.Lastname, cred.Patient.PolicyNumber)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("registrationHandler(): %v\n", err)
+				return
+			}
+
+			if existingPatient == nil {
+				if _, err = w.Write([]byte("There is no such patient")); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+					return
+				}
+				return
+			}
+
+			err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, "patient")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("registrationHandler(): %v\n", err)
+				return
+			}
+
+			err = store.DB.AddRelatedIdToUser(context.Background(), cred.Username, existingPatient.Id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("registrationHandler(): %v\n", err)
+				return
+			}
+
+			claims = jwt.MapClaims{
+				"role":       "patient",
+				"username":   cred.Username,
+				"patient_id": existingPatient.Id,
+				"exp":        time.Now().Add(time.Hour * 24).Unix(),
+			}
+		} else {
+			if _, err = w.Write([]byte("Need more info in request")); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+				return
+			}
 			return
 		}
-		// TODO возвращать jwt после регистрации или перенаправлять на /auth
-		w.WriteHeader(http.StatusCreated)
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString(config.SigningKey)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("registrationHandler(): failed to sign jwt%v\n", err)
+			return
+		}
+
+		if _, err = w.Write([]byte(tokenString)); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("registrationHandler(): failed to write token %v\n", err)
+			return
+		}
 		return
 	}
-
-	w.WriteHeader(http.StatusConflict)
+	if _, err = w.Write([]byte("User already exists")); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+		return
+	}
 	return
 }
 
-func authHandler(w http.ResponseWriter, r *http.Request) {
-	type login struct {
-		LastName     string `json:"lastName"`
-		PolicyNumber string `json:"policyNumber"`
+func authenticationHandler(w http.ResponseWriter, r *http.Request) {
+	type form struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
-	authData := login{}
+	cred := form{}
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to read body: %v\n", err)
+		logrus.Errorf("authenticationHandler(): failed to read body: %v\n", err)
 		return
 	}
 
-	err = json.Unmarshal(body, &authData)
+	err = json.Unmarshal(body, &cred)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to unmarshal json: %v\n", err)
+		logrus.Errorf("authenticationHandler(): failed to unmarshal json: %v\n", err)
 		return
 	}
 
-	patient, err := store.DB.FindPatient(context.Background(), authData.LastName, authData.PolicyNumber)
+	user, err := store.DB.GetUserByUsername(context.Background(), cred.Username)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to find patient: %v\n", err)
+		logrus.Errorf("authenticationHandler(): %v\n", err)
 		return
 	}
 
-	if patient == nil {
-		w.WriteHeader(http.StatusExpectationFailed) // TODO Подсмотреть нормальный статус userNotFound
-		return
+	if user == nil {
+		if _, err = w.Write([]byte("User or password not found")); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("authenticationHandler(): failed to write response %v\n", err)
+			return
+		}
 	}
 
-	var claims = jwt.MapClaims{ // TODO заносится только тип patient. Нужно подумать
-		"type":    "patient",
-		"user_id": patient.Id,
-		"name":    patient.LastName + " " + patient.FirstName,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(config.SigningKey)
-
-	if _, err = w.Write([]byte(tokenString)); err != nil {
+	cond, err := store.DB.IsPasswordCorrect(context.Background(), cred.Username, cred.Password)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write token: %v\n", err)
+		logrus.Errorf("authenticationHandler(): failed to read body: %v\n", err)
 		return
 	}
 
+	if *cond {
+		var claims = jwt.MapClaims{}
+		if user.Role == "registrar" {
+			claims = jwt.MapClaims{
+				"role":     "registrar",
+				"username": user.Username,
+				"exp":      time.Now().Add(time.Hour * 24).Unix(),
+			}
+		}
+		if user.Role == "patient" {
+			claims = jwt.MapClaims{
+				"role":       "patient",
+				"username":   user.Username,
+				"patient_id": user.RelatedId,
+				"exp":        time.Now().Add(time.Hour * 24).Unix(),
+			}
+
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		tokenString, err := token.SignedString(config.SigningKey)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("authenticationHandler(): failed to sign jwt%v\n", err)
+			return
+		}
+
+		if _, err = w.Write([]byte(tokenString)); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("authenticationHandler(): failed to write token %v\n", err)
+			return
+		}
+		return
+	}
+	if _, err = w.Write([]byte("User or password not found")); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("authenticationHandler(): failed to write response %v\n", err)
+		return
+	}
+	return
 }
 
 func jwtMiddleware(tokenString string) (*jwt.Token, error) {

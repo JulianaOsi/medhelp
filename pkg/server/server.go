@@ -12,7 +12,7 @@ func LaunchServer() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/registration", registrationHandler).Methods(http.MethodPost)
-	r.HandleFunc("/auth", authHandler).Methods(http.MethodPost)
+	r.HandleFunc("/auth", authenticationHandler).Methods(http.MethodPost)
 	r.HandleFunc("/directions", getDirections).Methods(http.MethodGet)
 	r.HandleFunc("/direction/{id}/analysis", getDirectionAnalysis).Methods(http.MethodGet)
 	r.HandleFunc("/status", setDirectionStatus).Methods(http.MethodPost)
