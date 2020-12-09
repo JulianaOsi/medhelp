@@ -179,6 +179,51 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func registrationHandler(w http.ResponseWriter, r *http.Request) {
+	type auth struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+	}
+	cred := auth{}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("registrationHandler(): failed to read body %v\n", err)
+		return
+	}
+
+	err = json.Unmarshal(body, &cred)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("registrationHandler(): failed to unmarshal json: %v\n", err)
+		return
+	}
+
+	user, err := store.DB.GetUserByUsername(context.Background(), cred.Username)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("registrationHandler(): %v\n", err)
+		return
+	}
+
+	if user == nil {
+		err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, cred.Role)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("registrationHandler(): %v\n", err)
+			return
+		}
+		// TODO возвращать jwt после регистрации или перенаправлять на /auth
+		w.WriteHeader(http.StatusCreated)
+		return
+	}
+
+	w.WriteHeader(http.StatusConflict)
+	return
+}
+
 func authHandler(w http.ResponseWriter, r *http.Request) {
 	type login struct {
 		LastName     string `json:"lastName"`
