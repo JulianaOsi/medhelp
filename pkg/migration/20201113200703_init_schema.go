@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS users
     username	TEXT NOT NULL,
     password	TEXT NOT NULL,
     salt		TEXT NOT NULL,
-    role		TEXT NOT NULL
+    role		TEXT NOT NULL,
+    id_related	INT
 );
 `)
 	return err
