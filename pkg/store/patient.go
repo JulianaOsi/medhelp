@@ -16,7 +16,7 @@ type Patient struct {
 	Tel          string `json:"tel"`
 }
 
-func (s *Store) GetPatientByLastNameAndPolicyNumber(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
+func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
 	sql, _, err := goqu.Select("id", "first_name", "last_name", "policy_number", "tel").
 		From("patient").
 		Where(goqu.C("last_name").Eq(lastName), goqu.C("policy_number").Eq(policyNumber)).

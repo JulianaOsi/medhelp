@@ -77,58 +77,61 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var directions []*store.Direction
+	var analysis []*store.Analysis = nil
 	var claims = token.Claims.(jwt.MapClaims)
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("getDirectionAnalysis(): failed to convert string to int: %v\n", err)
+		return
+	}
 
-	if claims["role"] == "patient" {
-		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to get directions by patient: %v\n", err)
-			return
-		}
-	} else if claims["role"] == "registrar" {
-		directions, err = store.DB.GetDirections(context.Background())
+	if claims["role"] == "registrar" {
+		analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions: %v\n", err)
 			return
 		}
+	} else if claims["role"] == "patient" {
+		directions, err := store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("getDirectionAnalysis(): %v\n", err)
+			return
+		}
+
+		for i := range directions {
+			if directions[i].Id == id {
+				analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
+				if err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("getDirectionAnalysis(): %v\n", err)
+					return
+				}
+			}
+		}
 	}
 
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to convert string to int: %v\n", err)
+	if analysis == nil {
+		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	for i := range directions {
-		if directions[i].Id == id {
-			analysis, err := store.DB.GetAnalysisByDirectionId(context.Background(), id)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("failed to get direction analysis: %v\n", err)
-				return
-			}
-
-			analysisBytes, err := json.MarshalIndent(analysis, "", " ")
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("failed to marshal direction analysis: %v\n", err)
-				return
-			}
-
-			if _, err := w.Write(analysisBytes); err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("failed to write direction analysis: %v\n", err)
-				return
-			}
-			return
-		}
+	analysisBytes, err := json.MarshalIndent(analysis, "", " ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("getDirectionAnalysis(): failed to marshal direction analysis: %v\n", err)
+		return
 	}
-	w.WriteHeader(http.StatusUnauthorized)
+
+	if _, err := w.Write(analysisBytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write direction analysis: %v\n", err)
+		return
+	}
+	return
 }
 
 func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +242,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else if cred.Patient != nil {
-			existingPatient, err := store.DB.GetPatientByLastNameAndPolicyNumber(context.Background(), cred.Patient.Lastname, cred.Patient.PolicyNumber)
+			existingPatient, err := store.DB.GetPatient(context.Background(), cred.Patient.Lastname, cred.Patient.PolicyNumber)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				logrus.Errorf("registrationHandler(): %v\n", err)
@@ -248,6 +251,22 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 
 			if existingPatient == nil {
 				if _, err = w.Write([]byte("There is no such patient")); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+					return
+				}
+				return
+			}
+
+			cond, err := store.DB.IsRelatedIdSet(context.Background(), existingPatient.Id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("registrationHandler(): %v\n", err)
+				return
+			}
+
+			if *cond {
+				if _, err = w.Write([]byte("This patient already registered")); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
 					return

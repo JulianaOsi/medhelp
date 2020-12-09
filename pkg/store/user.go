@@ -58,6 +58,40 @@ func (s *Store) AddRelatedIdToUser(ctx context.Context, username string, related
 	}
 	return nil
 }
+
+func (s *Store) IsRelatedIdSet(ctx context.Context, relatedId int) (*bool, error) {
+	sql, _, err := goqu.Select("id", "username", "password", "salt", "role", "id_related").
+		From("users").
+		Where(goqu.C("id_related").Eq(relatedId)).
+		ToSQL()
+	if err != nil {
+		return nil, fmt.Errorf("IsRelatedIdSet(): sql query build failed: %v", err)
+	}
+
+	rows, err := s.connPool.Query(ctx, sql)
+	if err != nil {
+		return nil, fmt.Errorf("IsRelatedIdSet(): execute a query failed: %v", err)
+	}
+	defer rows.Close()
+
+	var users []*User
+
+	for rows.Next() {
+		user, err := readUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("IsRelatedIdSet(): converting failed: %v", err)
+		}
+		users = append(users, user)
+	}
+
+	var cond = false
+	if len(users) != 0 {
+		cond = true
+		return &cond, nil
+	}
+	return &cond, nil
+}
+
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	sql, _, err := goqu.Select("id", "username", "password", "salt", "role", "id_related").
 		From("users").

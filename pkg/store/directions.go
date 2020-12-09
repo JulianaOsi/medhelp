@@ -88,12 +88,12 @@ func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) 
 		Order(goqu.C("date").Asc()).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("sql query build failed: %v", err)
+		return nil, fmt.Errorf("GetDirectionsByPatientId(): sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("execute a query failed: %v", err)
+		return nil, fmt.Errorf("GetDirectionsByPatientId(): execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -102,7 +102,7 @@ func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) 
 	for rows.Next() {
 		direction, err := readDirection(rows)
 		if err != nil {
-			return nil, fmt.Errorf("read direction failed: %v", err)
+			return nil, fmt.Errorf("GetDirectionsByPatientId(): read direction failed: %v", err)
 		}
 		directions = append(directions, direction)
 	}
