@@ -77,7 +77,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var analysis []*store.Analysis = nil
+	var analysis []*store.Analysis
 	var claims = token.Claims.(jwt.MapClaims)
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
