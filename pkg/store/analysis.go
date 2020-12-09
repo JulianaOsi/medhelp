@@ -27,12 +27,12 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) (
 		).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("sql query build failed: %v", err)
+		return nil, fmt.Errorf("GetAnalysisByDirectionId(): sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("execute a query failed: %v", err)
+		return nil, fmt.Errorf("GetAnalysisByDirectionId(): execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -41,7 +41,7 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) (
 	for rows.Next() {
 		newAnalysis, err := readAnalysis(rows)
 		if err != nil {
-			return nil, fmt.Errorf("read analysis failed: %v", err)
+			return nil, fmt.Errorf("GetAnalysisByDirectionId(): read analysis failed: %v", err)
 		}
 		analysis = append(analysis, newAnalysis)
 	}
