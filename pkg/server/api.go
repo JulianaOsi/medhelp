@@ -119,12 +119,12 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	analysisBytes, err := json.MarshalIndent(analysis, "", " ")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("getDirectionAnalysis(): failed to marshal direction analysis: %v\n", err)
-		return
-	}
+			analysisBytes, err := json.MarshalIndent(analysis, "", " ")
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to marshal direction analysis: %v\n", err)
+				return
+			}
 
 	if _, err := w.Write(analysisBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
