@@ -11,11 +11,12 @@ import (
 func LaunchServer() {
 	r := mux.NewRouter()
 
+	r.HandleFunc("/registration", registrationHandler).Methods(http.MethodPost)
+	r.HandleFunc("/auth", authHandler).Methods(http.MethodPost)
 	r.HandleFunc("/directions", getDirections).Methods(http.MethodGet)
 	r.HandleFunc("/direction/{id}/analysis", getDirectionAnalysis).Methods(http.MethodGet)
 	r.HandleFunc("/status", setDirectionStatus).Methods(http.MethodPost)
 	r.HandleFunc("/check", setAnalysisCheck).Methods(http.MethodPost)
-	r.HandleFunc("/auth", authHandler).Methods(http.MethodPost)
 	r.HandleFunc("/direction/{id}/analysisFile", uploadAnalysisFile).Methods(http.MethodPost)
 
 	fmt.Printf("Starting server at localhost:8080\n")
