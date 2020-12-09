@@ -27,40 +27,6 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) (
 		).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("GetAnalysisByDirectionId(): sql query build failed: %v", err)
-	}
-
-	rows, err := s.connPool.Query(ctx, sql)
-	if err != nil {
-		return nil, fmt.Errorf("GetAnalysisByDirectionId(): execute a query failed: %v", err)
-	}
-	defer rows.Close()
-
-	var analysis []*Analysis
-
-	for rows.Next() {
-		newAnalysis, err := readAnalysis(rows)
-		if err != nil {
-			return nil, fmt.Errorf("GetAnalysisByDirectionId(): read analysis failed: %v", err)
-		}
-		analysis = append(analysis, newAnalysis)
-	}
-
-	return analysis, nil
-}
-
-func (s *Store) GetAnalysisById(ctx context.Context, id int) (*Analysis, error) {
-	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked", "file_id").
-		From("direction_analysis").
-		Where(goqu.L("\"direction_analysis\".\"id\"").Eq(id)).
-		LeftJoin(
-			goqu.T("analysis"),
-			goqu.On(goqu.Ex{
-				"analysis.id": goqu.I("direction_analysis.analysis_id"),
-			}),
-		).
-		ToSQL()
-	if err != nil {
 		return nil, fmt.Errorf("sql query build failed: %v", err)
 	}
 
@@ -80,10 +46,7 @@ func (s *Store) GetAnalysisById(ctx context.Context, id int) (*Analysis, error) 
 		analysis = append(analysis, newAnalysis)
 	}
 
-	if len(analysis) == 0 {
-		return nil, nil
-	}
-	return analysis[0], nil
+	return analysis, nil
 }
 
 func (s *Store) SetAnalysisState(ctx context.Context, analysisId int, isChecked bool) error {
