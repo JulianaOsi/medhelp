@@ -22,12 +22,12 @@ func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber st
 		Where(goqu.C("last_name").Eq(lastName), goqu.C("policy_number").Eq(policyNumber)).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): sql query build failed: %v", err)
+		return nil, fmt.Errorf("sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): execute a query failed: %v", err)
+		return nil, fmt.Errorf("execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -36,7 +36,7 @@ func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber st
 	for rows.Next() {
 		patient, err := readPatient(rows)
 		if err != nil {
-			return nil, fmt.Errorf("GetPatientByLastNameAndPolicyNumber(): read direction failed: %v", err)
+			return nil, fmt.Errorf("read direction failed: %v", err)
 		}
 		patients = append(patients, patient)
 	}
