@@ -35,10 +35,10 @@ func (s *Store) CreateUser(ctx context.Context, username string, password string
 			"role":     user.Role,
 		}).ToSQL()
 	if err != nil {
-		return fmt.Errorf("CreateRecord(): sql query build failed: %v", err)
+		return fmt.Errorf("sql query build failed: %v", err)
 	}
 	if _, err := s.connPool.Exec(ctx, sql); err != nil {
-		return fmt.Errorf("CreateRecord(): execute a query failed: %v", err)
+		return fmt.Errorf("execute a query failed: %v", err)
 	}
 	return nil
 }
@@ -51,10 +51,10 @@ func (s *Store) AddRelatedIdToUser(ctx context.Context, username string, related
 		Where(goqu.C("username").Eq(username)).
 		ToSQL()
 	if err != nil {
-		return fmt.Errorf("AddRelatedIdToUser(): sql query build failed: %v", err)
+		return fmt.Errorf("sql query build failed: %v", err)
 	}
 	if _, err := s.connPool.Exec(ctx, sql); err != nil {
-		return fmt.Errorf("AddRelatedIdToUser(): execute a query failed: %v", err)
+		return fmt.Errorf("execute a query failed: %v", err)
 	}
 	return nil
 }
@@ -65,12 +65,12 @@ func (s *Store) IsRelatedIdSet(ctx context.Context, relatedId int) (*bool, error
 		Where(goqu.C("id_related").Eq(relatedId)).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("IsRelatedIdSet(): sql query build failed: %v", err)
+		return nil, fmt.Errorf("sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("IsRelatedIdSet(): execute a query failed: %v", err)
+		return nil, fmt.Errorf("execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -79,7 +79,7 @@ func (s *Store) IsRelatedIdSet(ctx context.Context, relatedId int) (*bool, error
 	for rows.Next() {
 		user, err := readUser(rows)
 		if err != nil {
-			return nil, fmt.Errorf("IsRelatedIdSet(): converting failed: %v", err)
+			return nil, fmt.Errorf("converting failed: %v", err)
 		}
 		users = append(users, user)
 	}
@@ -98,12 +98,12 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 		Where(goqu.C("username").Eq(username)).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("GetUserByUsername(): sql query build failed: %v", err)
+		return nil, fmt.Errorf("sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("GetUserByUsername(): execute a query failed: %v", err)
+		return nil, fmt.Errorf("execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -112,7 +112,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 	for rows.Next() {
 		user, err := readUser(rows)
 		if err != nil {
-			return nil, fmt.Errorf("GetUserByUsername(): converting failed: %v", err)
+			return nil, fmt.Errorf("converting failed: %v", err)
 		}
 		users = append(users, user)
 	}
@@ -126,7 +126,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 func (s *Store) IsPasswordCorrect(ctx context.Context, username string, password string) (*bool, error) {
 	user, err := s.GetUserByUsername(ctx, username)
 	if err != nil {
-		return nil, fmt.Errorf("IsPasswordCorrect(): %v", err)
+		return nil, fmt.Errorf("failed to get use: %v", err)
 	}
 
 	var cond = false

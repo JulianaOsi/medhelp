@@ -40,7 +40,7 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to get directions by patient: %v\n", err)
+			logrus.Errorf("failed to get directions by patient id: %v\n", err)
 			return
 		}
 	} else if claims["role"] == "registrar" {
@@ -91,14 +91,14 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to get directions: %v\n", err)
+			logrus.Errorf("failed to get analysis by direction id: %v\n", err)
 			return
 		}
 	} else if claims["role"] == "patient" {
 		directions, err := store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("getDirectionAnalysis(): %v\n", err)
+			logrus.Errorf("failed to get directions by patient id: %v\n", err)
 			return
 		}
 
@@ -107,7 +107,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 				analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
-					logrus.Errorf("getDirectionAnalysis(): %v\n", err)
+					logrus.Errorf("failed to get analysis by direction id: %v\n", err)
 					return
 				}
 			}
@@ -220,7 +220,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := store.DB.GetUserByUsername(context.Background(), cred.Username)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("registrationHandler(): %v\n", err)
+		logrus.Errorf("failed to get user by username: %v\n", err)
 		return
 	}
 
@@ -231,7 +231,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 				err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, "registrar")
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
-					logrus.Errorf("registrationHandler(): %v\n", err)
+					logrus.Errorf("failed to create user: %v\n", err)
 					return
 				}
 
@@ -245,7 +245,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			existingPatient, err := store.DB.GetPatient(context.Background(), cred.Patient.Lastname, cred.Patient.PolicyNumber)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("registrationHandler(): %v\n", err)
+				logrus.Errorf("failed to get patient: %v\n", err)
 				return
 			}
 
