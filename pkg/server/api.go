@@ -217,3 +217,27 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func getAnalysisFiles(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	directionId := vars["id"]
+
+	analysisFiles, err := store.DB.GetAnalysisFiles(context.Background(), directionId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to get analysis file: %v\n", err)
+		return
+	}
+
+	analysisFielsBytes, err := json.MarshalIndent(analysisFiles, "", " ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to marshal analysis files: %v\n", err)
+		return
+	}
+
+	if _, err := w.Write(analysisFielsBytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write analysis files: %v\n", err)
+	}
+}
