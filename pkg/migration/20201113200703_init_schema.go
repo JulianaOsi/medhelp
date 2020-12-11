@@ -48,6 +48,16 @@ CREATE TABLE IF NOT EXISTS direction_analysis
     FOREIGN KEY (analysis_id) REFERENCES analysis (id),
     FOREIGN KEY (direction_id) REFERENCES direction (id)
 );
+
+CREATE TABLE IF NOT EXISTS users
+(
+    id       	SERIAL PRIMARY KEY,
+    username	TEXT NOT NULL,
+    password	TEXT NOT NULL,
+    salt		TEXT NOT NULL,
+    role		TEXT NOT NULL,
+    id_related	INT
+);
 `)
 	return err
 }
@@ -58,6 +68,7 @@ DROP TABLE direction CASCADE;
 DROP TABLE analysis CASCADE;
 DROP TABLE patient CASCADE;
 DROP TABLE direction_analysis CASCADE;
+DROP TABLE users CASCADE;
 
 `)
 	return err

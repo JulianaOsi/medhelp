@@ -14,14 +14,14 @@ type Analysis struct {
 	IsChecked bool   `json:"isChecked"`
 }
 
-func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId string) ([]*Analysis, error) {
+func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) ([]*Analysis, error) {
 	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked").
 		From("direction_analysis").
 		Where(goqu.C("direction_id").Eq(directionId)).
 		LeftJoin(
 			goqu.T("analysis"),
 			goqu.On(goqu.Ex{
-				"analysis.id": goqu.I("direction_analysis.id"),
+				"analysis.id": goqu.I("direction_analysis.analysis_id"),
 			}),
 		).
 		ToSQL()
