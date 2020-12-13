@@ -39,14 +39,22 @@ CREATE TABLE IF NOT EXISTS analysis
     icd_code TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS files
+(
+    id           SERIAL PRIMARY KEY,
+    name  		 TEXT NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS direction_analysis
 (
     id           INT PRIMARY KEY,
     analysis_id  INT NOT NULL,
     direction_id INT NOT NULL,
     is_checked   BOOLEAN DEFAULT FALSE,
+    file_id		 INT,
     FOREIGN KEY (analysis_id) REFERENCES analysis (id),
-    FOREIGN KEY (direction_id) REFERENCES direction (id)
+    FOREIGN KEY (direction_id) REFERENCES direction (id),
+    FOREIGN KEY (file_id) REFERENCES files (id)
 );
 
 CREATE TABLE IF NOT EXISTS users
@@ -67,9 +75,9 @@ func downInitSchema(tx *sql.Tx) error {
 DROP TABLE direction CASCADE;
 DROP TABLE analysis CASCADE;
 DROP TABLE patient CASCADE;
+DROP TABLE files CASCADE;
 DROP TABLE direction_analysis CASCADE;
 DROP TABLE users CASCADE;
-
 `)
 	return err
 }

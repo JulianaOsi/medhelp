@@ -1,12 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -35,7 +37,7 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 	var claims = token.Claims.(jwt.MapClaims)
 
 	if claims["role"] == "patient" {
-		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
+		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions by patient: %v\n", err)
@@ -79,7 +81,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 	var claims = token.Claims.(jwt.MapClaims)
 
 	if claims["role"] == "patient" {
-		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["user_id"]))
+		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions by patient: %v\n", err)
@@ -412,36 +414,85 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	vars := mux.Vars(r)
-	directionId := vars["id"]
-
-	err = store.DB.UploadAnalysisFile(context.Background(), handler.Filename, file, directionId)
+	analysisId, err := strconv.Atoi(vars["analysis"])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to upload analysis file: %v\n", err)
+		logrus.Errorf("failed to convert string to int: %v\n", err)
 		return
 	}
+
+	fileId, err := store.DB.SaveFile(context.Background(), file, handler.Filename)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to save analysis file: %v\n", err)
+		return
+	}
+
+	err = store.DB.SetAnalysisFile(context.Background(), analysisId, *fileId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to set analysis file: %v\n", err)
+		return
+	}
+
+	return
 }
 
-func getAnalysisFiles(w http.ResponseWriter, r *http.Request) {
+func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	directionId := vars["id"]
-
-	analysisFiles, err := store.DB.GetAnalysisFiles(context.Background(), directionId)
+	analysisId, err := strconv.Atoi(vars["analysis"])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to get analysis file: %v\n", err)
+		logrus.Errorf("failed to convert string to int: %v\n", err)
 		return
 	}
 
-	analysisFielsBytes, err := json.MarshalIndent(analysisFiles, "", " ")
+	analysis, err := store.DB.GetAnalysisById(context.Background(), analysisId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to marshal analysis files: %v\n", err)
+		logrus.Errorf("failed to get analysis by id: %v\n", err)
 		return
 	}
 
-	if _, err := w.Write(analysisFielsBytes); err != nil {
+	if analysis == nil {
+		if _, err = w.Write([]byte("There is no such analysis")); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response %v\n", err)
+			return
+		}
+	}
+
+	filePath, err := store.DB.GetFilepath(context.Background(), *analysis.FileId)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write analysis files: %v\n", err)
+		logrus.Errorf("failed to get filepath: %v\n", err)
+		return
+	}
+
+	if filePath != nil {
+		streamBytes, err := ioutil.ReadFile(*filePath)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to read file: %v\n", err)
+			return
+		}
+		ext := filepath.Ext(*filePath)
+		b := bytes.NewBuffer(streamBytes)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", analysis.Name+ext))
+		w.Header().Set("Content-Type", "multipart/form-data")
+
+		_, err = w.Write(b.Bytes())
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to response with file: %v\n", err)
+			return
+		}
+		return
+	}
+
+	if _, err = w.Write([]byte("There is no such file")); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write response %v\n", err)
+		return
 	}
 }
