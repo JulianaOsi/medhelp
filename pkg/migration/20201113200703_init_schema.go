@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS analysis
 
 CREATE TABLE IF NOT EXISTS files
 (
-    id           SERIAL PRIMARY KEY,
+    id           INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name  		 TEXT NOT NULL UNIQUE
 );
 
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS direction_analysis
 
 CREATE TABLE IF NOT EXISTS users
 (
-    id       	SERIAL PRIMARY KEY,
+    id       	INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     username	TEXT NOT NULL,
     password	TEXT NOT NULL,
     salt		TEXT NOT NULL,
