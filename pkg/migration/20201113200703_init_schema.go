@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS patient
     id            INT PRIMARY KEY,
     first_name    TEXT        NOT NULL,
     last_name     TEXT        NOT NULL,
+    birth_date	  DATE		  NOT NULL,
     policy_number TEXT UNIQUE NOT NULL,
     tel           TEXT
 );
@@ -28,15 +29,23 @@ CREATE TABLE IF NOT EXISTS direction
     date                 TIMESTAMP NOT NULL,
     icd_code             TEXT,
     medical_organization TEXT,
+    organization_contact TEXT,
+    justification		 TEXT,
     status               INT DEFAULT 0,
     FOREIGN KEY (patient_id) REFERENCES patient (id)
+);
+
+CREATE TABLE IF NOT EXISTS icd_analysis
+(
+    id 			INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    icd_code 	TEXT,
+    analysis_id INT
 );
 
 CREATE TABLE IF NOT EXISTS analysis
 (
     id       INT PRIMARY KEY,
-    name     TEXT NOT NULL,
-    icd_code TEXT NOT NULL
+    name     TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS files

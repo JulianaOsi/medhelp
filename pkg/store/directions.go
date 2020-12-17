@@ -13,6 +13,7 @@ type Direction struct {
 	Id                  int       `json:"id"`
 	PatientFirstName    string    `json:"patientFirstName"`
 	PatientLastName     string    `json:"patientLastName"`
+	PatientBirthDate    time.Time `json:"patientBirthDate"`
 	PatientPolicyNumber string    `json:"patientPolicyNumber"`
 	PatientTel          string    `json:"patientTel"`
 	DoctorName          string    `json:"doctorName"`
@@ -20,13 +21,15 @@ type Direction struct {
 	Date                time.Time `json:"date"`
 	IcdCode             string    `json:"icdCode"`
 	MedicalOrganization string    `json:"medicalOrganization"`
+	OrganizationContact string    `json:"organizationContact"`
+	Justification       string    `json:"justification"`
 	Status              int       `json:"status"`
 }
 
 func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
-		"direction.id", "first_name", "last_name", "policy_number",
-		"tel", "name", "specialty", "date", "icd_code", "medical_organization", "status",
+		"direction.id", "first_name", "last_name", "birth_date", "policy_number", "tel", "name",
+		"specialty", "date", "icd_code", "medical_organization", "organization_contact", "justification", "status",
 	).
 		From("direction").
 		LeftJoin(
@@ -68,8 +71,8 @@ func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 
 func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
-		"direction.id", "first_name", "last_name", "policy_number",
-		"tel", "name", "specialty", "date", "icd_code", "medical_organization", "status",
+		"direction.id", "first_name", "last_name", "birth_date", "policy_number", "tel", "name",
+		"specialty", "date", "icd_code", "medical_organization", "organization_contact", "justification", "status",
 	).
 		From("direction").
 		LeftJoin(
@@ -132,10 +135,10 @@ func readDirection(row pgx.Row) (*Direction, error) {
 	var d Direction
 
 	err := row.Scan(
-		&d.Id, &d.PatientFirstName, &d.PatientLastName,
+		&d.Id, &d.PatientFirstName, &d.PatientLastName, &d.PatientBirthDate,
 		&d.PatientPolicyNumber, &d.PatientTel, &d.DoctorName,
-		&d.DoctorSpecialty, &d.Date,
-		&d.IcdCode, &d.MedicalOrganization, &d.Status,
+		&d.DoctorSpecialty, &d.Date, &d.IcdCode, &d.MedicalOrganization,
+		&d.OrganizationContact, &d.Justification, &d.Status,
 	)
 	if err != nil {
 		return nil, err
