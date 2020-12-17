@@ -3,21 +3,23 @@ package store
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/jackc/pgx/v4"
 )
 
 type Patient struct {
-	Id           int    `json:"id"`
-	FirstName    string `json:"firstName"`
-	LastName     string `json:"lastName"`
-	PolicyNumber string `json:"policyNumber"`
-	Tel          string `json:"tel"`
+	Id           int       `json:"id"`
+	FirstName    string    `json:"firstName"`
+	LastName     string    `json:"lastName"`
+	BirthDate    time.Time `json:"birthDate"`
+	PolicyNumber string    `json:"policyNumber"`
+	Tel          string    `json:"tel"`
 }
 
 func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
-	sql, _, err := goqu.Select("id", "first_name", "last_name", "policy_number", "tel").
+	sql, _, err := goqu.Select("id", "first_name", "last_name", "birth_date", "policy_number", "tel").
 		From("patient").
 		Where(goqu.C("last_name").Eq(lastName), goqu.C("policy_number").Eq(policyNumber)).
 		ToSQL()
@@ -52,7 +54,7 @@ func readPatient(row pgx.Row) (*Patient, error) {
 
 	err := row.Scan(
 		&p.Id, &p.FirstName, &p.LastName,
-		&p.PolicyNumber, &p.Tel,
+		&p.BirthDate, &p.PolicyNumber, &p.Tel,
 	)
 	if err != nil {
 		return nil, err
