@@ -119,12 +119,12 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-			analysisBytes, err := json.MarshalIndent(analysis, "", " ")
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("failed to marshal direction analysis: %v\n", err)
-				return
-			}
+	analysisBytes, err := json.MarshalIndent(analysis, "", " ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to marshal direction analysis: %v\n", err)
+		return
+	}
 
 	if _, err := w.Write(analysisBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -138,6 +138,30 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 	type directionUpdate struct {
 		DirectionId int `json:"directionId"`
 		Status      int `json:"status"`
+	}
+
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
+		return
+	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	var isAccess = false
+
+	if claims["role"] == "registrar" {
+		isAccess = true
+	}
+
+	if isAccess == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("WWW-Authenticate", "Bearer realm=\"Access to the direction\", charset=\"UTF-8\"")
+		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -163,6 +187,30 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 	type analysisUpdate struct {
 		AnalysisId int  `json:"analysisId"`
 		Checked    bool `json:"checked"`
+	}
+
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
+		return
+	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	var isAccess = false
+
+	if claims["role"] == "registrar" {
+		isAccess = true
+	}
+
+	if isAccess == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("WWW-Authenticate", "Bearer realm=\"Access to the analysis\", charset=\"UTF-8\"")
+		return
 	}
 
 	body, err := ioutil.ReadAll(r.Body)
@@ -424,13 +472,16 @@ func jwtMiddleware(tokenString string) (*jwt.Token, error) {
 }
 
 func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
-	file, handler, err := r.FormFile("file")
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to get file: %v\n", err)
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
 		return
 	}
-	defer file.Close()
 
 	vars := mux.Vars(r)
 	analysisId, err := strconv.Atoi(vars["analysis"])
@@ -439,6 +490,51 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		logrus.Errorf("failed to convert string to int: %v\n", err)
 		return
 	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	var isAccess = false
+
+	if claims["role"] == "patient" {
+		directions, err := store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions by patient id: %v\n", err)
+			return
+		}
+
+		for _, j := range directions {
+			analysis, err := store.DB.GetAnalysisByDirectionId(context.Background(), j.Id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to get analysis by direction id: %v\n", err)
+				return
+			}
+
+			for _, n := range analysis {
+				if n.Id == analysisId {
+					isAccess = true
+				}
+			}
+		}
+	}
+
+	if claims["role"] == "registrar" {
+		isAccess = true
+	}
+
+	if isAccess == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("WWW-Authenticate", "Bearer realm=\"Access to the patient analysis\", charset=\"UTF-8\"")
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to get file: %v\n", err)
+		return
+	}
+	defer file.Close()
 
 	fileId, err := store.DB.SaveFile(context.Background(), file, handler.Filename)
 	if err != nil {
@@ -458,11 +554,59 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response message: %v\n", err)
+			return
+		}
+		return
+	}
+
 	vars := mux.Vars(r)
 	analysisId, err := strconv.Atoi(vars["analysis"])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to convert string to int: %v\n", err)
+		return
+	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	var isAccess = false
+
+	if claims["role"] == "patient" {
+		directions, err := store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions by patient id: %v\n", err)
+			return
+		}
+
+		for _, j := range directions {
+			analysis, err := store.DB.GetAnalysisByDirectionId(context.Background(), j.Id)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to get analysis by direction id: %v\n", err)
+				return
+			}
+
+			for _, n := range analysis {
+				if n.Id == analysisId {
+					isAccess = true
+				}
+			}
+		}
+	}
+
+	if claims["role"] == "registrar" {
+		isAccess = true
+	}
+
+	if isAccess == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("WWW-Authenticate", "Bearer realm=\"Access to the patient analysis\", charset=\"UTF-8\"")
 		return
 	}
 
@@ -479,6 +623,16 @@ func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 			logrus.Errorf("failed to write response %v\n", err)
 			return
 		}
+		return
+	}
+
+	if analysis.FileId == nil {
+		if _, err = w.Write([]byte("There is no file of analysis")); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response %v\n", err)
+			return
+		}
+		return
 	}
 
 	filePath, err := store.DB.GetFilepath(context.Background(), *analysis.FileId)
