@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -22,29 +21,48 @@ import (
 )
 
 func getDirections(w http.ResponseWriter, r *http.Request) {
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status     status             `json:"status"`
+		Directions []*store.Direction `json:"directions"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
+
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
 
-	var directions []*store.Direction
 	var claims = token.Claims.(jwt.MapClaims)
 
 	if claims["role"] == "patient" {
-		directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
+		resp.Directions, err = store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions by patient id: %v\n", err)
 			return
 		}
 	} else if claims["role"] == "registrar" {
-		directions, err = store.DB.GetDirections(context.Background())
+		resp.Directions, err = store.DB.GetDirections(context.Background())
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get directions: %v\n", err)
@@ -52,43 +70,63 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	directionsBytes, err := json.MarshalIndent(directions, "", " ")
+	respBytes, err := json.Marshal(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to marshal directions: %v\n", err)
+		logrus.Errorf("failed to marshall response: %v\n", err)
 		return
 	}
 
-	if _, err := w.Write(directionsBytes); err != nil {
+	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write directions: %v\n", err)
+		logrus.Errorf("failed to write response: %v\n", err)
 	}
+	return
 }
 
 func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status   status            `json:"status"`
+		Analysis []*store.Analysis `json:"analysis"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
+
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
 
-	var analysis []*store.Analysis
 	var claims = token.Claims.(jwt.MapClaims)
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("getDirectionAnalysis(): failed to convert string to int: %v\n", err)
+		logrus.Errorf("failed to convert string to int: %v\n", err)
 		return
 	}
 
 	if claims["role"] == "registrar" {
-		analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
+		resp.Analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to get analysis by direction id: %v\n", err)
@@ -104,7 +142,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 
 		for i := range directions {
 			if directions[i].Id == id {
-				analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
+				resp.Analysis, err = store.DB.GetAnalysisByDirectionId(context.Background(), id)
 				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					logrus.Errorf("failed to get analysis by direction id: %v\n", err)
@@ -114,22 +152,21 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if analysis == nil {
+	if resp.Analysis == nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	analysisBytes, err := json.MarshalIndent(analysis, "", " ")
+	respBytes, err := json.Marshal(resp)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to marshal direction analysis: %v\n", err)
+		logrus.Errorf("failed to marshall response: %v\n", err)
 		return
 	}
 
-	if _, err := w.Write(analysisBytes); err != nil {
+	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write direction analysis: %v\n", err)
-		return
+		logrus.Errorf("failed to write response: %v\n", err)
 	}
 	return
 }
@@ -140,13 +177,31 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 		Status      int `json:"status"`
 	}
 
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status   status            `json:"status"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
@@ -166,13 +221,17 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatalf("failed to read body: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to read body: %v\n", err)
+		return
 	}
 	update := directionUpdate{}
 
 	err = json.Unmarshal(body, &update)
 	if err != nil {
-		log.Fatalf("failed to unmarshal json: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to unmarshal json: %v\n", err)
+		return
 	}
 
 	err = store.DB.SetDirectionStatus(context.Background(), update.DirectionId, update.Status)
@@ -189,13 +248,31 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 		Checked    bool `json:"checked"`
 	}
 
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status   status            `json:"status"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
@@ -215,13 +292,17 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatalf("failed to read body: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to read body: %v\n", err)
+		return
 	}
 	update := analysisUpdate{}
 
 	err = json.Unmarshal(body, &update)
 	if err != nil {
-		log.Fatalf("failed to unmarshal json: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to unmarshal json: %v\n", err)
+		return
 	}
 
 	err = store.DB.SetAnalysisState(context.Background(), update.AnalysisId, update.Checked)
@@ -246,15 +327,27 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 		Registrar *registrar `json:"registrar"`
 		Patient   *patient   `json:"patient"`
 	}
+
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status status `json:"status"`
+		Token  string `json:"token"`
+	}
+
 	cred := form{
 		Registrar: nil,
 		Patient:   nil,
 	}
 
+	var resp response
+	resp.Status.Status = "ok"
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("registrationHandler(): failed to read body %v\n", err)
+		logrus.Errorf("failed to read body: %v\n", err)
 		return
 	}
 
@@ -298,10 +391,18 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if existingPatient == nil {
-				if _, err = w.Write([]byte("There is no such patient")); err != nil {
+				resp.Status.Status = "info"
+				resp.Status.Message = "There is no such patient"
+				respBytes, err := json.Marshal(resp)
+				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
-					logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+					logrus.Errorf("failed to marshall response: %v\n", err)
 					return
+				}
+
+				if _, err := w.Write(respBytes); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("failed to write response: %v\n", err)
 				}
 				return
 			}
@@ -309,15 +410,23 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			cond, err := store.DB.IsRelatedIdSet(context.Background(), existingPatient.Id)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("registrationHandler(): %v\n", err)
+				logrus.Errorf("failed to check related patient: %v\n", err)
 				return
 			}
 
 			if *cond {
-				if _, err = w.Write([]byte("This patient already registered")); err != nil {
+				resp.Status.Status = "info"
+				resp.Status.Message = "This patient already registered"
+				respBytes, err := json.Marshal(resp)
+				if err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
-					logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+					logrus.Errorf("failed to marshall response: %v\n", err)
 					return
+				}
+
+				if _, err := w.Write(respBytes); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					logrus.Errorf("failed to write response: %v\n", err)
 				}
 				return
 			}
@@ -325,14 +434,14 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			err = store.DB.CreateUser(context.Background(), cred.Username, cred.Password, "patient")
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("registrationHandler(): %v\n", err)
+				logrus.Errorf("failed to create user: %v\n", err)
 				return
 			}
 
 			err = store.DB.AddRelatedIdToUser(context.Background(), cred.Username, existingPatient.Id)
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("registrationHandler(): %v\n", err)
+				logrus.Errorf("failed to add related id to user: %v\n", err)
 				return
 			}
 
@@ -343,33 +452,55 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 				"exp":        time.Now().Add(time.Hour * 24).Unix(),
 			}
 		} else {
-			if _, err = w.Write([]byte("Need more info in request")); err != nil {
+			resp.Status.Status = "info"
+			resp.Status.Message = "Need more info in request"
+			respBytes, err := json.Marshal(resp)
+			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
-				logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+				logrus.Errorf("failed to marshall response: %v\n", err)
 				return
+			}
+
+			if _, err := w.Write(respBytes); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				logrus.Errorf("failed to write response: %v\n", err)
 			}
 			return
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString(config.SigningKey)
+		resp.Token, err = token.SignedString(config.SigningKey)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("registrationHandler(): failed to sign jwt%v\n", err)
+			logrus.Errorf("failed to sign JWT: %v\n", err)
 			return
 		}
 
-		if _, err = w.Write([]byte(tokenString)); err != nil {
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("registrationHandler(): failed to write token %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
-	if _, err = w.Write([]byte("User already exists")); err != nil {
+	resp.Status.Status = "info"
+	resp.Status.Message = "User already exists"
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("registrationHandler(): failed to write response %v\n", err)
+		logrus.Errorf("failed to marshall response: %v\n", err)
 		return
+	}
+
+	if _, err := w.Write(respBytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write response: %v\n", err)
 	}
 	return
 }
@@ -379,41 +510,62 @@ func authenticationHandler(w http.ResponseWriter, r *http.Request) {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
+
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status status `json:"status"`
+		Token  string `json:"token"`
+	}
+
 	cred := form{}
+	var resp response
+	resp.Status.Status = "ok"
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("authenticationHandler(): failed to read body: %v\n", err)
+		logrus.Errorf("failed to read body: %v\n", err)
 		return
 	}
 
 	err = json.Unmarshal(body, &cred)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("authenticationHandler(): failed to unmarshal json: %v\n", err)
+		logrus.Errorf("failed to unmarshall json: %v\n", err)
 		return
 	}
 
 	user, err := store.DB.GetUserByUsername(context.Background(), cred.Username)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("authenticationHandler(): %v\n", err)
+		logrus.Errorf("failed to get user by username: %v\n", err)
 		return
 	}
 
 	if user == nil {
-		if _, err = w.Write([]byte("User or password not found")); err != nil {
+		resp.Status.Status = "info"
+		resp.Status.Message = "User or password not found"
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("authenticationHandler(): failed to write response %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
 		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
+		}
+		return
 	}
 
 	cond, err := store.DB.IsPasswordCorrect(context.Background(), cred.Username, cred.Password)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("authenticationHandler(): failed to read body: %v\n", err)
+		logrus.Errorf("failed to check password: %v\n", err)
 		return
 	}
 
@@ -436,24 +588,38 @@ func authenticationHandler(w http.ResponseWriter, r *http.Request) {
 
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString(config.SigningKey)
+		resp.Token, err = token.SignedString(config.SigningKey)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("authenticationHandler(): failed to sign jwt%v\n", err)
+			logrus.Errorf("failed to sign JWT: %v\n", err)
 			return
 		}
 
-		if _, err = w.Write([]byte(tokenString)); err != nil {
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("authenticationHandler(): failed to write token %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
-	if _, err = w.Write([]byte("User or password not found")); err != nil {
+	resp.Status.Status = "info"
+	resp.Status.Message = "User or password not found"
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("authenticationHandler(): failed to write response %v\n", err)
+		logrus.Errorf("failed to marshall response: %v\n", err)
 		return
+	}
+
+	if _, err := w.Write(respBytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write response: %v\n", err)
 	}
 	return
 }
@@ -472,13 +638,31 @@ func jwtMiddleware(tokenString string) (*jwt.Token, error) {
 }
 
 func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status   status            `json:"status"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
@@ -554,13 +738,31 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status   status            `json:"status"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
 	token, err := jwtMiddleware(r.Header.Get("Authorization"))
 	if err != nil {
-		_, err = w.Write([]byte("Invalid token. Unauthorized user have no access. Please log in."))
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response message: %v\n", err)
+			logrus.Errorf("failed to marshall response: %v\n", err)
 			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
 		}
 		return
 	}
@@ -618,20 +820,12 @@ func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if analysis == nil {
-		if _, err = w.Write([]byte("There is no such analysis")); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response %v\n", err)
-			return
-		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	if analysis.FileId == nil {
-		if _, err = w.Write([]byte("There is no file of analysis")); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			logrus.Errorf("failed to write response %v\n", err)
-			return
-		}
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
@@ -663,9 +857,6 @@ func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err = w.Write([]byte("There is no such file")); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		logrus.Errorf("failed to write response %v\n", err)
-		return
-	}
+	w.WriteHeader(http.StatusNoContent)
+	return
 }
