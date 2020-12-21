@@ -14,25 +14,34 @@ func upInitSchema(tx *sql.Tx) error {
 	_, err := tx.Exec(`
 CREATE TABLE IF NOT EXISTS patient
 (
-    id            INT PRIMARY KEY,
+    id 			  INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     first_name    TEXT        NOT NULL,
     last_name     TEXT        NOT NULL,
     birth_date	  DATE		  NOT NULL,
     policy_number TEXT UNIQUE NOT NULL,
-    tel           TEXT
+    tel           TEXT		  NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS doctor
+(
+    id 		  INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    name      TEXT  NOT NULL,
+    specialty TEXT  NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS direction
 (
-    id                   INT PRIMARY KEY,
-    patient_id           INT      NOT NULL,
+    id                   INT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    patient_id           INT NOT NULL,
+    doctor_id			 INT NOT NULL,
     date                 TIMESTAMP NOT NULL,
     icd_code             TEXT,
     medical_organization TEXT,
     organization_contact TEXT,
     justification		 TEXT,
     status               INT DEFAULT 0,
-    FOREIGN KEY (patient_id) REFERENCES patient (id)
+    FOREIGN KEY (patient_id) REFERENCES patient (id),
+    FOREIGN KEY (doctor_id) REFERENCES doctor (id)
 );
 
 CREATE TABLE IF NOT EXISTS icd_analysis
@@ -84,6 +93,7 @@ func downInitSchema(tx *sql.Tx) error {
 DROP TABLE direction CASCADE;
 DROP TABLE analysis CASCADE;
 DROP TABLE patient CASCADE;
+DROP TABLE doctor CASCADE;
 DROP TABLE files CASCADE;
 DROP TABLE direction_analysis CASCADE;
 DROP TABLE users CASCADE;

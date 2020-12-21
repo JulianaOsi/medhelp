@@ -26,6 +26,39 @@ type Direction struct {
 	Status              int       `json:"status"`
 }
 
+type NewDirection struct {
+	PatientId           int       `json:"patientId"`
+	DoctorId            int       `json:"doctorId"`
+	Date                time.Time `json:"date"`
+	IcdCode             string    `json:"icdCode"`
+	MedicalOrganization string    `json:"medicalOrganization"`
+	OrganizationContact string    `json:"organizationContact"`
+	Justification       string    `json:"justification"`
+}
+
+func (s *Store) AddDirection(ctx context.Context, direction NewDirection) error {
+	sql, _, err := goqu.Insert("direction").
+		Rows(goqu.Record{
+			"patient_id":           direction.PatientId,
+			"doctor_id":            direction.DoctorId,
+			"date":                 direction.Date,
+			"icd_code":             direction.IcdCode,
+			"medical_organization": direction.MedicalOrganization,
+			"organization_contact": direction.OrganizationContact,
+			"justification":        direction.Justification,
+		}).
+		OnConflict(goqu.DoNothing()).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("sql query build failed: %v", err)
+	}
+
+	if _, err := s.connPool.Exec(ctx, sql); err != nil {
+		return fmt.Errorf("execute a query failed: %v", err)
+	}
+	return nil
+}
+
 func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
 		"direction.id", "first_name", "last_name", "birth_date", "policy_number", "tel", "name",
