@@ -18,6 +18,14 @@ type Patient struct {
 	Tel          string    `json:"tel"`
 }
 
+type NewPatient struct {
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	BirthDate    time.Time `json:"birth_date"`
+	PolicyNumber string    `json:"policy_number"`
+	Tel          string    `json:"tel"`
+}
+
 func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber string) (*Patient, error) {
 	sql, _, err := goqu.Select("id", "first_name", "last_name", "birth_date", "policy_number", "tel").
 		From("patient").
@@ -47,6 +55,32 @@ func (s *Store) GetPatient(ctx context.Context, lastName string, policyNumber st
 		return nil, nil
 	}
 	return patients[0], nil
+}
+
+func (s *Store) AddPatient(ctx context.Context, patient NewPatient) (*int, error) {
+	sql, _, err := goqu.Insert("patient").
+		Rows(goqu.Record{
+			"first_name":    patient.FirstName,
+			"last_name":     patient.LastName,
+			"birth_date":    patient.BirthDate,
+			"policy_number": patient.PolicyNumber,
+			"tel":           patient.Tel,
+		}).
+		OnConflict(goqu.DoNothing()).
+		ToSQL()
+	if err != nil {
+		return nil, fmt.Errorf("sql query build failed: %v", err)
+	}
+	if _, err := s.connPool.Exec(ctx, sql); err != nil {
+		return nil, fmt.Errorf("execute a query failed: %v", err)
+	}
+
+	newPatient, err := s.GetPatient(context.Background(), patient.LastName, patient.PolicyNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get patient: %v\n", err)
+	}
+
+	return &newPatient.Id, nil
 }
 
 func readPatient(row pgx.Row) (*Patient, error) {

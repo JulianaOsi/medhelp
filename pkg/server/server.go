@@ -14,6 +14,7 @@ func LaunchServer() {
 	r.HandleFunc("/registration", registrationHandler).Methods(http.MethodPost)
 	r.HandleFunc("/auth", authenticationHandler).Methods(http.MethodPost)
 	r.HandleFunc("/directions", getDirections).Methods(http.MethodGet)
+	r.HandleFunc("/directions/add", addDirection).Methods(http.MethodPost)
 	r.HandleFunc("/direction/{id}/analysis", getDirectionAnalysis).Methods(http.MethodGet)
 	r.HandleFunc("/analysis/{analysis}/upload", uploadAnalysisFile).Methods(http.MethodPost)
 	r.HandleFunc("/analysis/{analysis}/download", downloadAnalysisFile).Methods(http.MethodGet)

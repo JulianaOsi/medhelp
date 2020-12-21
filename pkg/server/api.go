@@ -20,6 +20,112 @@ import (
 	"github.com/JulianaOsi/medhelp/pkg/store"
 )
 
+func addDirection(w http.ResponseWriter, r *http.Request) {
+	type Direction struct {
+		Patient             store.NewPatient `json:"patient"`
+		Doctor              store.NewDoctor  `json:"doctor"`
+		Date                time.Time        `json:"date"`
+		IcdCode             string           `json:"icd_code"`
+		MedicalOrganization string           `json:"medical_organization"`
+		OrganizationContact string           `json:"organization_contact"`
+		Justification       string           `json:"justification"`
+	}
+	type directions struct {
+		Directions []Direction `json:"directions"`
+	}
+
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status status `json:"status"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
+
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to marshall response: %v\n", err)
+			return
+		}
+
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
+		}
+		return
+	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	var isAccess = false
+
+	if claims["role"] == "registrar" {
+		isAccess = true
+	}
+
+	if isAccess == false {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Header().Set("WWW-Authenticate", "Bearer realm=\"Access to the direction\", charset=\"UTF-8\"")
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to read body: %v\n", err)
+		return
+	}
+	update := directions{}
+
+	err = json.Unmarshal(body, &update)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to unmarshal json: %v\n", err)
+		return
+	}
+
+	for _, j := range update.Directions {
+		patientId, err := store.DB.AddPatient(context.Background(), j.Patient)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to add patient: %v\n", err)
+			return
+		}
+
+		doctorId, err := store.DB.AddDoctor(context.Background(), j.Doctor)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to add doctor: %v\n", err)
+			return
+		}
+
+		direction := store.NewDirection{
+			PatientId:           *patientId,
+			DoctorId:            *doctorId,
+			Date:                j.Date,
+			IcdCode:             j.IcdCode,
+			MedicalOrganization: j.MedicalOrganization,
+			OrganizationContact: j.OrganizationContact,
+			Justification:       j.Justification,
+		}
+
+		err = store.DB.AddDirection(context.Background(), direction)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to add direction: %v\n", err)
+			return
+		}
+	}
+}
+
 func getDirections(w http.ResponseWriter, r *http.Request) {
 	type status struct {
 		Status  string `json:"status"`
@@ -182,7 +288,7 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	type response struct {
-		Status   status            `json:"status"`
+		Status status `json:"status"`
 	}
 
 	var resp response
@@ -253,7 +359,7 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	type response struct {
-		Status   status            `json:"status"`
+		Status status `json:"status"`
 	}
 
 	var resp response
@@ -643,7 +749,7 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	type response struct {
-		Status   status            `json:"status"`
+		Status status `json:"status"`
 	}
 
 	var resp response
@@ -743,7 +849,7 @@ func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		Message string `json:"message"`
 	}
 	type response struct {
-		Status   status            `json:"status"`
+		Status status `json:"status"`
 	}
 
 	var resp response
