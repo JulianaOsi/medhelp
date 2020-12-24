@@ -53,6 +53,10 @@ func (s *Store) AddDirection(ctx context.Context, direction NewDirection) error 
 		return fmt.Errorf("sql query build failed: %v", err)
 	}
 
+	//sql = fmt.Sprintf("INSERT INTO direction(patient_id, doctor_id, date, icd_code, medical_organization, organization_contact, justification)\n" +
+	//	"SELECT '%d', '%d', '%s', '%s', '%s', '%s', '%s'\nWHERE NOT EXISTS (\n    SELECT 1 FROM direction WHERE patient_id='%d' AND doctor_id='%d' AND date='%s'\n" +
+	//	");", direction.PatientId, direction.DoctorId, direction.Date, direction.IcdCode, direction.MedicalOrganization, direction.OrganizationContact, direction.Justification, direction.PatientId, direction.DoctorId, direction.Date)
+
 	if _, err := s.connPool.Exec(ctx, sql); err != nil {
 		return fmt.Errorf("execute a query failed: %v", err)
 	}
