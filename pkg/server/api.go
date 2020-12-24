@@ -21,6 +21,7 @@ import (
 )
 
 func addDirection(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type Direction struct {
 		Patient             store.NewPatient `json:"patient"`
 		Doctor              store.NewDoctor  `json:"doctor"`
@@ -127,6 +128,7 @@ func addDirection(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDirections(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type status struct {
 		Status  string `json:"status"`
 		Message string `json:"message"`
@@ -151,6 +153,7 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -183,6 +186,7 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("content-type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to write response: %v\n", err)
@@ -191,6 +195,7 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type status struct {
 		Status  string `json:"status"`
 		Message string `json:"message"`
@@ -215,6 +220,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -270,6 +276,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("content-type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to write response: %v\n", err)
@@ -278,6 +285,7 @@ func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 }
 
 func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type directionUpdate struct {
 		DirectionId int `json:"directionId"`
 		Status      int `json:"status"`
@@ -305,6 +313,7 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -349,6 +358,7 @@ func setDirectionStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type analysisUpdate struct {
 		AnalysisId int  `json:"analysisId"`
 		Checked    bool `json:"checked"`
@@ -376,6 +386,7 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -420,6 +431,7 @@ func setAnalysisCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func registrationHandler(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type registrar struct {
 		Secret string `json:"secret"`
 	}
@@ -506,6 +518,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				w.Header().Set("content-type", "application/json")
 				if _, err := w.Write(respBytes); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					logrus.Errorf("failed to write response: %v\n", err)
@@ -530,6 +543,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
+				w.Header().Set("content-type", "application/json")
 				if _, err := w.Write(respBytes); err != nil {
 					w.WriteHeader(http.StatusInternalServerError)
 					logrus.Errorf("failed to write response: %v\n", err)
@@ -567,6 +581,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			w.Header().Set("content-type", "application/json")
 			if _, err := w.Write(respBytes); err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				logrus.Errorf("failed to write response: %v\n", err)
@@ -589,6 +604,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -604,6 +620,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("content-type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to write response: %v\n", err)
@@ -612,6 +629,7 @@ func registrationHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func authenticationHandler(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type form struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -661,6 +679,7 @@ func authenticationHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -708,6 +727,7 @@ func authenticationHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -723,6 +743,7 @@ func authenticationHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("content-type", "application/json")
 	if _, err := w.Write(respBytes); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logrus.Errorf("failed to write response: %v\n", err)
@@ -743,7 +764,21 @@ func jwtMiddleware(tokenString string) (*jwt.Token, error) {
 	return token, nil
 }
 
+func corsSkip(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	return
+}
+
+func setupCorsResponse(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Authorization")
+}
+
 func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type status struct {
 		Status  string `json:"status"`
 		Message string `json:"message"`
@@ -766,6 +801,7 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
@@ -844,6 +880,7 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
 	type status struct {
 		Status  string `json:"status"`
 		Message string `json:"message"`
@@ -866,6 +903,7 @@ func downloadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("content-type", "application/json")
 		if _, err := w.Write(respBytes); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			logrus.Errorf("failed to write response: %v\n", err)
