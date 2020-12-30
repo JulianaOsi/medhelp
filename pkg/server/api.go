@@ -194,6 +194,91 @@ func getDirections(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func getDirection(w http.ResponseWriter, r *http.Request) {
+	setupCorsResponse(&w) //CORS
+	type status struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	type response struct {
+		Status    status           `json:"status"`
+		Direction *store.Direction `json:"direction"`
+	}
+
+	var resp response
+	resp.Status.Status = "ok"
+
+	token, err := jwtMiddleware(r.Header.Get("Authorization"))
+	if err != nil {
+		logrus.Errorf("failed to parse token: %v\n", err)
+		resp.Status.Status = "error"
+		resp.Status.Message = err.Error()
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to marshall response: %v\n", err)
+			return
+		}
+
+		w.Header().Set("content-type", "application/json")
+		if _, err := w.Write(respBytes); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to write response: %v\n", err)
+		}
+		return
+	}
+
+	var claims = token.Claims.(jwt.MapClaims)
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to convert string to int: %v\n", err)
+		return
+	}
+
+	if claims["role"] == "patient" {
+		directions, err := store.DB.GetDirectionsByPatientId(context.Background(), fmt.Sprintf("%v", claims["patient_id"]))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get directions by patient id: %v\n", err)
+			return
+		}
+
+		for _, j := range directions {
+			if j.Id == id {
+				resp.Direction = j
+			}
+		}
+	} else if claims["role"] == "registrar" {
+		resp.Direction, err = store.DB.GetDirectionById(context.Background(), id)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			logrus.Errorf("failed to get direction: %v\n", err)
+			return
+		}
+	}
+
+	if resp.Direction == nil {
+		resp.Status.Status = "info"
+		resp.Status.Message = "There is no such direction or you have no access"
+	}
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to marshall response: %v\n", err)
+		return
+	}
+
+	w.Header().Set("content-type", "application/json")
+	if _, err := w.Write(respBytes); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to write response: %v\n", err)
+	}
+	return
+}
+
 func getDirectionAnalysis(w http.ResponseWriter, r *http.Request) {
 	setupCorsResponse(&w) //CORS
 	type status struct {

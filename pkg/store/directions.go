@@ -63,6 +63,53 @@ func (s *Store) AddDirection(ctx context.Context, direction NewDirection) error 
 	return nil
 }
 
+func (s *Store) GetDirectionById(ctx context.Context, id int) (*Direction, error) {
+	sql, _, err := goqu.Select(
+		"direction.id", "first_name", "last_name", "birth_date", "policy_number", "tel", "name",
+		"specialty", "date", "icd_code", "medical_organization", "organization_contact", "justification", "status",
+	).
+		From("direction").
+		LeftJoin(
+			goqu.T("patient"),
+			goqu.On(goqu.Ex{
+				"patient_id": goqu.I("patient.id"),
+			}),
+		).
+		LeftJoin(
+			goqu.T("doctor"),
+			goqu.On(goqu.Ex{
+				"doctor_id": goqu.I("doctor.id"),
+			}),
+		).
+		Where(goqu.L("\"direction\".\"id\"").Eq(id)).
+		ToSQL()
+	if err != nil {
+		return nil, fmt.Errorf("sql query build failed: %v", err)
+	}
+
+	rows, err := s.connPool.Query(ctx, sql)
+	if err != nil {
+		return nil, fmt.Errorf("execute a query failed: %v", err)
+	}
+	defer rows.Close()
+
+	var directions []*Direction
+
+	for rows.Next() {
+		direction, err := readDirection(rows)
+		if err != nil {
+			return nil, fmt.Errorf("read direction failed: %v", err)
+		}
+		directions = append(directions, direction)
+	}
+
+	if len(directions) != 0 {
+		return directions[0], nil
+	}
+
+	return nil, nil
+}
+
 func (s *Store) GetDirections(ctx context.Context) ([]*Direction, error) {
 	sql, _, err := goqu.Select(
 		"direction.id", "first_name", "last_name", "birth_date", "policy_number", "tel", "name",
@@ -128,12 +175,12 @@ func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) 
 		Order(goqu.C("date").Asc()).
 		ToSQL()
 	if err != nil {
-		return nil, fmt.Errorf("GetDirectionsByPatientId(): sql query build failed: %v", err)
+		return nil, fmt.Errorf(": sql query build failed: %v", err)
 	}
 
 	rows, err := s.connPool.Query(ctx, sql)
 	if err != nil {
-		return nil, fmt.Errorf("GetDirectionsByPatientId(): execute a query failed: %v", err)
+		return nil, fmt.Errorf(": execute a query failed: %v", err)
 	}
 	defer rows.Close()
 
@@ -142,7 +189,7 @@ func (s *Store) GetDirectionsByPatientId(ctx context.Context, patientId string) 
 	for rows.Next() {
 		direction, err := readDirection(rows)
 		if err != nil {
-			return nil, fmt.Errorf("GetDirectionsByPatientId(): read direction failed: %v", err)
+			return nil, fmt.Errorf(": read direction failed: %v", err)
 		}
 		directions = append(directions, direction)
 	}
