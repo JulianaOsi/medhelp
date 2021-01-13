@@ -9,14 +9,15 @@ import (
 )
 
 type Analysis struct {
-	Id        int    `json:"id"`
-	Name      string `json:"name"`
-	IsChecked bool   `json:"isChecked"`
-	FileId    *int   `json:"file_id"`
+	Id          int    `json:"id"`
+	Name        string `json:"name"`
+	IsChecked   bool   `json:"isChecked"`
+	FileId      *int   `json:"file_id"`
+	DirectionId int    `json:"direction_id"`
 }
 
 func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) ([]*Analysis, error) {
-	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked", "file_id").
+	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked", "file_id", "direction_id").
 		From("direction_analysis").
 		Where(goqu.C("direction_id").Eq(directionId)).
 		LeftJoin(
@@ -50,7 +51,7 @@ func (s *Store) GetAnalysisByDirectionId(ctx context.Context, directionId int) (
 }
 
 func (s *Store) GetAnalysisById(ctx context.Context, id int) (*Analysis, error) {
-	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked", "file_id").
+	sql, _, err := goqu.Select("direction_analysis.id", "name", "is_checked", "file_id", "direction_id").
 		From("direction_analysis").
 		Where(goqu.L("\"direction_analysis\".\"id\"").Eq(id)).
 		LeftJoin(
@@ -125,7 +126,7 @@ func (s *Store) SetAnalysisFile(ctx context.Context, analysisId int, fileId int)
 func readAnalysis(row pgx.Row) (*Analysis, error) {
 	var a Analysis
 
-	err := row.Scan(&a.Id, &a.Name, &a.IsChecked, &a.FileId)
+	err := row.Scan(&a.Id, &a.Name, &a.IsChecked, &a.FileId, &a.DirectionId)
 	if err != nil {
 		return nil, err
 	}
