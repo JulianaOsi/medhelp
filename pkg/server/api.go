@@ -961,6 +961,20 @@ func uploadAnalysisFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	analysis, err := store.DB.GetAnalysisById(context.Background(), analysisId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to get analysis: %v\n", err)
+		return
+	}
+
+	err = store.DB.SetDirectionStatus(context.Background(), analysis.DirectionId, 1)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logrus.Errorf("failed to set direction status: %v\n", err)
+		return
+	}
+
 	return
 }
 
